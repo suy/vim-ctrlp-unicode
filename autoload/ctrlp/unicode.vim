@@ -62,7 +62,8 @@ call add(g:ctrlp_ext_vars, {
 " Return: a Vim's List
 "
 function! ctrlp#{s:n}#init()
-	let lines = readfile('/usr/share/unicode/UnicodeData.txt')
+	let path = get(g:, 'ctrlp_unicode_unicodedata_file', '/usr/share/unicode/UnicodeData.txt')
+	let lines = readfile(path)
 
 	let result = []
 
@@ -109,12 +110,5 @@ let s:id = g:ctrlp_builtins + len(g:ctrlp_ext_vars)
 function! ctrlp#{s:n}#id()
 	return s:id
 endfunction
-
-
-" Create a command to directly call the new search type
-"
-" Put this in vimrc or plugin/unicode.vim
-" command! CtrlPUnicode call ctrlp#init(ctrlp#unicode#id())
-
 
 " vim:fen:fdl=0:ts=4:sw=4:sts=4
