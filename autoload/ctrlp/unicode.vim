@@ -62,16 +62,67 @@ call add(g:ctrlp_ext_vars, {
 " Return: a Vim's List
 "
 function! ctrlp#{s:n}#init()
-	let path = get(g:, 'ctrlp_unicode_unicodedata_file', '/usr/share/unicode/UnicodeData.txt')
-	let lines = readfile(path)
-
 	let result = []
 
-	for line in lines
-		let pieces = split(line, ';')
+	" Try first UnicodeData.txt, since it's simpler.
+	let path = get(g:, 'ctrlp_unicode_unicodedata_file',
+		\ '/usr/share/unicode/UnicodeData.txt')
 
-		call add(result, pieces[0] . "\t" . pieces[1])
-	endfor
+	if !filereadable(path)
+		let path = get(g:, 'ctrlp_unicode_charmap_file',
+			\ '/usr/share/i18n/charmaps/UTF-8.gz')
+		if !filereadable(path)
+			return result
+		endif
+
+		" Copy and decompress the file.
+		let tempfile = tempname()
+		" Consider: Pure Vim alternative to copying the file without system().
+		" let ret = writefile(readfile(path, "b"), tempfile.'.gz', "b")
+		" if ret != 0
+		" 	return result
+		" endif
+		silent execute '!cp' shellescape(path) shellescape(tempfile.'.gz')
+		call system('gzip -dn ' . tempfile.'.gz')
+
+		" Start parsing.
+		let lines = readfile(tempfile)
+
+		let started = 0
+		for line in lines
+			if started == 0 && line ==# 'CHARMAP'
+				let started = 1
+				continue
+			endif
+			if line ==# 'END CHARMAP'
+				break
+			endif
+
+			if started == 1
+				let pieces = split(line, '\s\+')
+
+				" Skip lines that provide ranges, since are not useful anyway:
+				" <U3400>..<U343F> /xe3/x90/x80 <CJK>
+				" <UE000>..<UE03F> /xee/x80/x80 <Private Use>
+				if stridx(pieces[0], '.') != -1
+					continue
+				endif
+				let number = matchstr(pieces[0], '\x\+')
+				" Remove the two already parsed elements of the list and join
+				" the remaining pieces.
+				call remove(pieces, 0, 1) " From 0 to 1: two items
+				call add(result, number . "\t" . join(pieces, ' '))
+			endif
+		endfor
+	else
+		let lines = readfile(path)
+
+		for line in lines
+			let pieces = split(line, ';')
+
+			call add(result, pieces[0] . "\t" . pieces[1])
+		endfor
+	endif
 
 	return result
 endfunction
